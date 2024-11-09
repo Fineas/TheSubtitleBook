@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>TSB - Scanning</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f8f8f8;
+            font-family: Arial, sans-serif;
+        }
+        .container {
+            text-align: center;
+        }
+        .scanning-gif {
+            width: 45%; 
+            height: auto;
+        }
+        .message {
+            margin-top: 20px;
+            color: #555;
+        }
+    </style>
+    <script>
+        function checkScanStatus() {
+            fetch('/scan_status')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'complete') {
+                        window.location.href = '/';
+                    } else {
+                        setTimeout(checkScanStatus, 1500);
+                    }
+                })
+                .catch(error => console.error('Error:', error));
+        }
+        window.onload = checkScanStatus;
+    </script>
+</head>
+<body>
+    <div class="container">
+        <img src="{{ url_for('static', filename='images/scanning.gif') }}" alt="Scanning..." class="scanning-gif">
+        <h1 class="message">Scanning pages, please wait...</h1>
+    </div>
+</body>
+</html>

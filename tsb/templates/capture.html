@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Capture Image</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #000;
+        }
+        #camera {
+            width: 100vw;
+            height: 100vh;
+            object-fit: cover;
+        }
+        #captureButton {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 10px 20px;
+            background-color: rgba(255, 255, 255, 0.7);
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 18px;
+        }
+    </style>
+</head>
+<body>
+    <video id="camera" autoplay></video>
+    <button id="captureButton">Capture</button>
+    <form id="captureForm" action="{{ url_for('capture_image_post') }}" method="POST" enctype="multipart/form-data" style="display:none;">
+        <input type="hidden" name="book_hash" value="{{ request.args.get('book_hash') }}">
+        <input type="file" name="captured_image" id="captured_image" accept="image/*" style="display:none;">
+    </form>
+
+    <script>
+        const camera = document.getElementById('camera');
+        const captureButton = document.getElementById('captureButton');
+        const captureForm = document.getElementById('captureForm');
+        const capturedImageInput = document.getElementById('captured_image');
+
+        // Access the camera with preference for back camera
+        navigator.mediaDevices.getUserMedia({
+            video: { facingMode: { exact: "environment" } } // Requests the back camera
+        })
+        .then(stream => {
+            camera.srcObject = stream;
+
+            // Attempt to control focus if supported
+            const track = stream.getVideoTracks()[0];
+            const capabilities = track.getCapabilities();
+
+            if (capabilities.focusDistance) {
+                // Check if the device supports focus adjustment
+                track.applyConstraints({
+                    advanced: [{ focusMode: "continuous" }]
+                }).catch(err => console.error("Focus adjustment failed:", err));
+            } else {
+                console.log("Focus control not supported on this device.");
+            }
+        })
+        .catch(err => {
+            console.error("Error accessing the camera:", err);
+            alert("Could not access the back camera. Please check permissions and try again.");
+        });
+
+        // Capture the image
+        captureButton.addEventListener('click', () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = camera.videoWidth;
+            canvas.height = camera.videoHeight;
+            const context = canvas.getContext('2d');
+            context.drawImage(camera, 0, 0, canvas.width, canvas.height);
+
+            // Convert the canvas image to a Blob and attach it to the form
+            canvas.toBlob(blob => {
+                const file = new File([blob], "capture.jpg", { type: "image/jpeg" });
+                const dataTransfer = new DataTransfer();
+                dataTransfer.items.add(file);
+                capturedImageInput.files = dataTransfer.files;
+
+                // Submit the form
+                captureForm.submit();
+            }, 'image/jpeg');
+        });
+    </script>
+</body>
+</html>
