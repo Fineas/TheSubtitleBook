@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Subtitle Book</title>
+</head>
+<body>
+    <ul>
+        {% for file in files %}
+        <li style="list-style-type: none;">
+            <a href="{{ url_for('static', filename=request.path+'/'+file) }}">
+                {{ (request.path + '/' if request.path != '/' else '') + file }}
+            </a>
+        </li>
+        {% endfor %}
+    </ul>
+</body>
+</html>
