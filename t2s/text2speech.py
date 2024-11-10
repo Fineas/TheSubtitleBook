@@ -4,7 +4,7 @@ def generate_audio(text, output_path):
     client = OpenAI()
 
     response = client.audio.speech.create(
-        model="tts-1", 
+        model="tts-1-hd", 
         voice="echo", 
         input=text  
     )

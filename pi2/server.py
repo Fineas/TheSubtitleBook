@@ -1,8 +1,9 @@
-# from scanner import Servo
+from scanner import Servo
 from flask import Flask, request, render_template, send_from_directory
 import requests
 import os
 import hashlib
+import time
 from PIL import Image
 
 app = Flask(__name__)
@@ -17,7 +18,7 @@ def home():
 
 @app.route('/scan_book', methods=['GET'])
 def scan_book():
-    # servo = Servo(18)  # instance of the Servo class
+    servo = Servo()  # instance of the Servo class
 
     pages = int(request.args.get('pages', 1)) 
 
@@ -27,6 +28,10 @@ def scan_book():
 
     if not os.path.exists(folder_path):
         os.makedirs(folder_path)
+
+    # press on the page
+    servo.get_down()
+    time.sleep(1) 
 
     # loop through the pages
     for i in range(pages):
@@ -54,9 +59,13 @@ def scan_book():
             right_half.save(os.path.join(folder_path, f'{i*2}.jpg'))
             os.remove(image_path)  # delete the original full image
 
-        # turn the page 
-        # servo.set_angle(90)
-        print("[*] next \n")
+        # get back up and turn the page
+        servo.get_up()
+        time.sleep(1)
+
+        if i < pages-1:
+            servo.turn_page()
+            print("[*] next \n")
         # time.sleep(1)  # wait...
 
     return {"status": "Scanning complete", "folder": folder_name}
@@ -77,4 +86,4 @@ def dir_listing(scan_path):
     return render_template('dir_listing.html', files=files)
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=1337)
+    app.run(host='192.168.134.198', port=1337)

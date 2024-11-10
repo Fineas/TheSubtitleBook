@@ -11,8 +11,9 @@ from flask import Flask, request, render_template, jsonify, redirect
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 # import local packages
-from ocr.image2text import do_ocr, extract_text_from_image, extract_title_and_author_from_image, extract_title_and_author_from_text
+from ocr.image2text import do_ocr, extract_json_from_text, extract_title_and_author_from_image, extract_title_and_author_from_text
 from t2s.text2speech import generate_audio
+from s2v.static2video import create_slideshow_with_audio
 
 
 app = Flask(__name__)
@@ -33,6 +34,67 @@ def add_cors_headers(response):
     response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
     response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
     return response
+
+def count_lines_in_file(file_path):
+    try:
+        with open(file_path, 'r', encoding='utf-8') as file:
+            return len(file.readlines())  # count them lines
+    except FileNotFoundError:
+        return 0 
+
+def fetch_image_from_prompt(prompt):
+    formatted_prompt = prompt.replace("\n", "").replace(" ", "-")
+    formatted_prompt += "-mid20th-century-disney-style"
+    
+    url = f"https://image.pollinations.ai/prompt/{formatted_prompt}"
+    
+    try:
+        response = requests.get(url)
+        if response.status_code == 200:
+            return response.content  
+        else:
+            return f"Error: Received status code {response.status_code}"
+    except Exception as e:
+        return f"Exception occurred: {str(e)}"
+
+def split_text_into_parts(text, num_parts):
+    length = len(text)
+    part_size = length // num_parts
+    parts = [text[i*part_size:(i+1)*part_size] for i in range(num_parts - 1)]
+    parts.append(text[(num_parts - 1)*part_size:])  
+    return parts
+
+def generate_images_from_text_files(folder_path):
+    # books_folder = app.config['UPLOAD_FOLDER']
+    text_folder = os.path.join(folder_path, "text")
+    video_folder = os.path.join(folder_path, "video")
+
+    image_counter = 1
+
+    print('>>',text_folder)
+
+    for file_name in sorted(os.listdir(text_folder)):
+        print(file_name)
+        if file_name.endswith(".txt"):
+            file_path = os.path.join(text_folder, file_name)
+            
+            with open(file_path, 'r', encoding='utf-8') as file:
+                text = file.read()
+
+            parts = split_text_into_parts(text, 3)
+            print(parts)
+
+            # Pass each part to the image generation function
+            for part in parts:
+                image_data = fetch_image_from_prompt(part)
+                
+                if image_data:
+                    image_path = os.path.join(video_folder, f"{image_counter}.jpg")
+                    with open(image_path, 'wb') as image_file:
+                        image_file.write(image_data)
+                    
+                    print(f"[*] Saved image {image_counter}.jpg")
+                    image_counter += 1
 
 def load_books():
     books = []
@@ -59,7 +121,14 @@ def view_scans(hash):
     if os.path.exists(book_path):
         with open(book_path, 'r') as file:
             book_info = json.load(file)
-        return render_template('book.html', book=book_info)
+        
+        book_path = os.path.join(books_folder, hash, 'text')
+        line_counts = {}
+        for page in os.listdir(book_path):
+            if page.endswith('.txt'):
+                file_path = os.path.join(book_path, page)
+                line_counts[page] = count_lines_in_file(file_path)
+        return render_template('book.html', book=book_info, line_counts=line_counts)
     else:
         return "Book not found", 404
 
@@ -110,6 +179,23 @@ def chat_with_ollama():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+def generate_summary(text):
+    response = ollama.chat(
+        model="llama3.1:latest",
+        messages=[
+            {
+                'role': 'system',
+                'content': 'You are a summarizer. You will summarize the following text:',
+            },
+            {
+                'role': 'user',
+                'content': text,
+            }
+        ]
+    )
+
+    content = response.get('message', {}).get('content', 'No response')
+    return content
 
 def extract_data(local_dir):
     info_path = os.path.join(local_dir, 'info.json')
@@ -118,28 +204,28 @@ def extract_data(local_dir):
         info = json.load(f)
 
     cover_image_path = os.path.join(local_dir, 'scans', 'cover.jpg')
-    
+
     # ocr the cover to extract author and title
     if os.path.exists(cover_image_path):
         print(f"[*] Performing OCR on {cover_image_path}")
-        # title, author  = extract_title_and_author(cover_image_path)
-        ocr_res = do_ocr(cover_image_path)
-        print("[*] Cover OCR Result:", ocr_res)
-        title, author = extract_title_and_author_from_text(ocr_res)
+        tit_auth  = json.loads(extract_json_from_text(extract_title_and_author_from_image(cover_image_path)))
+        # ocr_res = do_ocr(cover_image_path)
+        print("[*] Cover Result:", tit_auth)
+        # title, author = extract_title_and_author_from_text(ocr_res)
 
         # title = ""
         # author = ""
-        info["Title"] = title
-        info["Author"] = author
+        info["Title"] = tit_auth["title"]
+        info["Author"] = tit_auth["author"]
 
-        with open(info_path, 'w') as f:
-            json.dump(info, f, indent=4)
-        print(f"[*] Title: {title}")
-        print(f"[*] Author: {author}")
+        # print(f"[*] Title: {tit_auth["title"]}")
+        # print(f"[*] Author: {tit_auth["author"]}")
     else:
         print(f"Error: Cover image {cover_image_path} not found")
 
+
     # ocr the text pages
+    full_book = ''
     scans_folder = os.path.join(local_dir, 'scans')
     text_folder = os.path.join(local_dir, 'text')
 
@@ -151,10 +237,32 @@ def extract_data(local_dir):
             print(f"[*] Performing OCR on {image_path}")
             # page_text = extract_text_from_image(image_path)
             page_text = do_ocr(image_path)
+            full_book += page_text
 
             with open(text_output_path, 'w') as text_file:
                 text_file.write(page_text)
             print(f"[*] Saved OCR text to {text_output_path}")
+    
+    if page_text:
+        info["Description"] = generate_summary(full_book)
+    
+    with open(info_path, 'w') as f:
+        json.dump(info, f, indent=4)
+
+def generate_video(local_dir):
+    video_folder = os.path.join(local_dir, 'video')
+
+    images = []
+
+    for file_name in sorted(os.listdir(video_folder)):
+        if file_name.endswith('.jpg'):
+            images.append(os.path.join(video_folder, file_name))
+
+    audio_path = os.path.join(local_dir, 'audio', 'output.mp3')
+    duration_per_image = 25 
+
+    create_slideshow_with_audio(images, audio_path, os.path.join(local_dir, 'video', 'movie.mp4'), duration_per_image)
+    print(f"[*] Video generated at {os.path.join(local_dir, 'movie.mp4')}")
 
 def generate_audio_file(local_dir):
     text_folder = os.path.join(local_dir, 'text')
@@ -176,12 +284,12 @@ def generate_audio_file(local_dir):
 def start_scanning(pages):
     global scan_complete
     try:
-        response = requests.get(f'http://127.0.0.1:1337/scan_book?pages={pages}')
+        response = requests.get(f'http://192.168.134.198:1337/scan_book?pages={pages}')
         if response.status_code == 200:
             data = response.json()
             folder_name = data.get("folder")
             if folder_name:
-                list_response = requests.get(f'http://127.0.0.1:1337/scans/{folder_name}')
+                list_response = requests.get(f'http://192.168.134.198:1337/scans/{folder_name}')
                 if list_response.status_code == 200:
                     # step 0 dump the scans
                     soup = BeautifulSoup(list_response.text, 'html.parser')
@@ -200,10 +308,12 @@ def start_scanning(pages):
                     generate_audio_file(local_dir)
 
                     # step 4 generate images
-                    print(f'[*] Generating images')
+                    print(f'[*] Generating imagess')
+                    generate_images_from_text_files(local_dir)
 
                     # step 5 generate video
                     print(f'[*] Generating video')
+                    generate_video(local_dir)
 
                     scan_complete = True
                 else:
@@ -247,7 +357,7 @@ def create_local_book_folder(folder_name, files, pages):
 
     for file_name in files:
         print('[*] Downloading:', file_name)
-        file_url = f'http://127.0.0.1:1337/static/scans/{folder_name}/{file_name}'
+        file_url = f'http://192.168.134.198:1337/static/scans/{folder_name}/{file_name}'
         file_response = requests.get(file_url)
         if file_response.status_code == 200:
             file_path = os.path.join(book_folder, 'scans', file_name)

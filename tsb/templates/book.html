@@ -37,23 +37,58 @@
         <img src="static/books/{{ book['Hash'] }}/scans/cover.jpg" alt="Book Cover" class="book-cover">
         <div class="book-details">
             <h3>{{ book['Title'] }}</h3>
-            <button class="watch-button" onclick="openModal()">Watch the Book</button>
-            <button class="listen-button" onclick="openModal()">Listen the Book</button>
-            <button class="read-button" onclick="openModal()">Read the Book</button>
+            <p class="author-info"><b>Author:</b> {{ book['Author'] }}</p>
+            <div class="book-btns">
+                <button class="watch-button" onclick="openVideoModal()">Watch the Book</button>
+                <button class="listen-button" onclick="openAudioModal()">Listen the Book</button>
+                <button class="read-button" onclick="openTextModal()">Read the Book</button>
+            </div>
             <br><br>
-            <p><b>Author:</b> {{ book['Author'] }}</p>
-            <p><b>Summary:</b> {{ book['Description'] }}</p>
+            
+            <p class="summary-info"><b>Summary:</b> {{ book['Description'] }}</p>
         </div>
     </div>
 
     <!-- Modal for Video Player -->
     <div class="modal" id="videoModal">
         <div class="modal-content">
-            <span class="close-button" onclick="closeModal()">&times;</span>
+            <span class="close-button" onclick="closeVideoModal()">&times;</span>
+            <h2 style="text-align: center;">Photo Film</h2>
+            <br>
             <video controls width="100%">
                 <source src="static/books/{{ book['Hash'] }}/video/movie.mp4" type="video/mp4">
                 Your browser does not support the video tag.
             </video>
+        </div>
+    </div>
+
+    <!-- Modal for Audio Player -->
+    <div class="modal" id="audioModal">
+        <div class="modal-content">
+            <span class="close-button" onclick="closeAudioModal()">&times;</span>
+            <h2 style="text-align: center;">Audio Book</h2>
+            <br>
+            <audio controls style="width:100%">
+                <source src="static/books/{{ book['Hash'] }}/audio/output.mp3" type="audio/mp3">
+                Your browser does not support the audio tag.
+            </video>
+        </div>
+    </div>
+
+    <!-- Modal for Text Reader -->
+    <div class="modal" id="textModal">
+        <div class="modal-content" id="text-modal">
+            <span class="close-button" onclick="closeTextModal()">&times;</span>
+            <div style="width:100%; height: 100%;" id="speical-modal">
+                <h2 style="text-align: center;">Plain Text</h2>
+                {% for page in range(1, book["Number of Pages"] | int + 1) %}
+                    <br>
+                    <p>Page {{page}}</p>
+                    <div class="object-container">
+                        <object data="{{ url_for('static', filename='books/' + book['Hash'] + '/text/' + page|string + '.txt') }}" style="width: 100%; height: {{ line_counts[page|string + '.txt'] // 2 }}em; border: none;"></object>
+                    </div>
+                {% endfor %}
+            </div>
         </div>
     </div>
 
@@ -72,12 +107,28 @@
 
     <script>
         // Modal functionality
-        function openModal() {
+        function openVideoModal() {
             document.getElementById('videoModal').style.display = 'flex';
         }
 
-        function closeModal() {
+        function openAudioModal() {
+            document.getElementById('audioModal').style.display = 'flex';
+        }
+
+        function openTextModal() {
+            document.getElementById('textModal').style.display = 'flex';
+        }
+
+        function closeVideoModal() {
             document.getElementById('videoModal').style.display = 'none';
+        }
+
+        function closeAudioModal() {
+            document.getElementById('audioModal').style.display = 'none';
+        }
+
+        function closeTextModal() {
+            document.getElementById('textModal').style.display = 'none';
         }
 
         // Chat box functionality

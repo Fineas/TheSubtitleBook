@@ -17,6 +17,7 @@
         <div class="dropdown-content">
             {% for book in books %}
             <a href="/{{ book['Hash'] }}">{{ book['Title'] }}</a>
+            <hr id="menu_spacer">
             {% endfor %}
         </div>
         </div>
@@ -91,13 +92,13 @@
             {% else %}
                 <!-- If there are 3 or fewer books, include "Scan Book" button and display all books -->
                 <div class="book-row book-grid-wrapper">
-                    <div class="book-card scan-card" onclick="location.href='/capture'">
+                    <div class="book-card scan-card" onclick="openModal()">
                         <div class="movie-cover">    
                             <img src="{{ url_for('static', filename='images/new_book_cover.jpg') }}" alt="Book Cover">
                         </div>
                         <h2>Scan a New Book</h2>
                         <div class="hover-icon">
-                            <img src="{{ url_for('static', filename='images/scan.png') }}" alt="Scan Icon">
+                            <img src="{{ url_for('static', filename='images/add.png') }}" alt="Scan Icon">
                         </div>
                     </div>
                     {% for book in books %}

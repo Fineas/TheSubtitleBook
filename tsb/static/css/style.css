@@ -64,7 +64,7 @@ body {
 }
 
 .dropdown-content a {
-    color: white;
+    color: #bfe1ff;
     text-decoration: none;
     font-weight: normal;
 }
@@ -162,6 +162,7 @@ body {
     object-fit: cover;
     border-radius: 5px;
     margin-bottom: 10px;
+    aspect-ratio: 407/612;
 }
 
 .book-card h2 {
@@ -365,12 +366,16 @@ body {
 
 .hover-icon {
     position: absolute;
-    top: 43%;
+    top: 39%;
     left: 50%;
     transform: translate(-50%, -50%);
     opacity: 0;
     transition: opacity 0.3s;
     pointer-events: none; /* Prevents interfering with clicks */
+}
+
+.hover-icon img {
+    aspect-ratio: 1/1 !important;
 }
 
 .scan-card .hover-icon {
@@ -456,3 +461,9 @@ body {
 
 #pageCount {border:0;outline:0;font-size:5em;font-weight:bolder;width:60%;margin-left:5%;}
 #pageCount:focus {outline:none!important;}
+
+#menu_spacer {
+    border: 1px solid #c04033;
+    margin-top: 5px;
+    margin-bottom: 5px;
+}
